@@ -143,3 +143,57 @@ WITH RECURSIVE CTE AS (
 )
 SELECT n -- invocation
 FROM CTE;
+
+-- -- Recursive CTE practical implementation
+CREATE TABLE remployee(
+    employee_id SERIAL NOT NULL,
+    first_name VARCHAR(40),
+    last_name VARCHAR(40),
+    manager_id int NULL,
+    PRIMARY KEY(employee_id)
+);
+
+DROP TABLE remployee;
+
+SELECT * FROM remployee;
+
+INSERT INTO remployee (first_name, last_name, manager_id) VALUES ('lorem', 'ipsum', NULL);
+INSERT INTO remployee (first_name, last_name, manager_id) VALUES ('john', 'doe', 1);
+INSERT INTO remployee (first_name, last_name, manager_id) VALUES ('jane', 'smith', 1);
+INSERT INTO remployee (first_name, last_name, manager_id) VALUES ('mike', 'wazowski', 2);
+INSERT INTO remployee (first_name, last_name, manager_id) VALUES ('what', 'thefuck', 4);
+INSERT INTO remployee (first_name, last_name, manager_id) VALUES ('are', 'youdumb', 3);
+INSERT INTO remployee (first_name, last_name, manager_id) VALUES ('yes', 'iam', 4);
+
+WITH RECURSIVE CTE_Employee_Report (employee_id, first_name, last_name, manager_id, employee_level) AS (
+    SELECT 
+        r1.employee_id,
+        r1.first_name,
+        r1.last_name,
+        r1.manager_id,
+        1
+    FROM
+        remployee AS r1
+    WHERE
+        r1.manager_id IS NULL
+    UNION ALL
+    SELECT
+        r2.employee_id,
+        r2.first_name,
+        r2.last_name,
+        r2.manager_id,
+        cte.employee_level + 1
+    FROM
+        remployee AS r2
+        INNER JOIN CTE_Employee_Report AS cte ON cte.employee_id = r2.manager_id
+)
+SELECT 
+    employee_id,
+    first_name,
+    last_name,
+    manager_id,
+    (SELECT last_name FROM remployee WHERE CTE_Employee_Report.manager_id = employee_id) AS manager_last_name,
+    employee_level
+FROM
+    CTE_Employee_Report
+ORDER BY 6,4,1;
