@@ -181,7 +181,7 @@ WITH RECURSIVE CTE_Employee_Report (employee_id, first_name, last_name, manager_
         r2.employee_id,
         r2.first_name,
         r2.last_name,
-        r2.manager_id,
+        r2.manager_id,  
         cte.employee_level + 1
     FROM
         remployee AS r2
@@ -197,3 +197,75 @@ SELECT
 FROM
     CTE_Employee_Report
 ORDER BY 6,4,1;
+
+-- Calculating running total with window function
+SELECT
+    os.order_id,
+    os.order_date,
+    os.cust_id,
+    os.freight,
+    SUM(os.freight) OVER (PARTITION BY os.cust_id ORDER BY os.order_id) AS running_freight_total
+FROM
+    orders AS os;
+
+-- Row number function on product
+SELECT
+    pd.prod_id,
+    cs.category_name,
+    pd.prod_name,
+    pd.supp_id,
+    pd.category_id,
+    ROW_NUMBER () OVER (PARTITION BY pd.category_id ORDER BY pd.prod_id)
+FROM
+    products AS pd
+    INNER JOIN categories AS cs ON pd.category_id = cs.category_id;
+
+
+-- Pagination with row number function on products
+SELECT 
+    *
+FROM (
+    SELECT
+        pd.prod_id,
+        cs.category_name,
+        pd.prod_name,
+        pd.supp_id,
+        pd.category_id,
+        ROW_NUMBER () OVER (PARTITION BY pd.category_id ORDER BY pd.prod_id)
+    FROM
+        products AS pd
+        INNER JOIN categories AS cs ON pd.category_id = cs.category_id
+) AS x
+WHERE ROW_NUMBER BETWEEN 8 AND 10;
+
+
+
+-- Getting the nth highest or lowest 
+SELECT
+    p.prod_id,
+    p.category_id,
+    c.category_name,
+    p.prod_name,
+    p.unit_price
+FROM
+    products AS p
+    INNER JOIN categories AS c ON p.category_id = c.category_id
+WHERE
+    unit_price = (
+        SELECT
+            unit_price
+        FROM (
+            SELECT
+                unit_price,
+                ROW_NUMBER() OVER (ORDER BY unit_price DESC) AS nth
+            FROM(
+                SELECT
+                    DISTINCT unit_price
+                FROM
+                    products
+            ) AS prices
+        ) AS sorted_prices
+        WHERE
+            nth = 1
+    )
+ORDER BY 1,4,5;
