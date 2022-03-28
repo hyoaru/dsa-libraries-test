@@ -238,8 +238,6 @@ FROM (
 ) AS x
 WHERE ROW_NUMBER BETWEEN 8 AND 10;
 
-
-
 -- Getting the nth highest or lowest 
 SELECT
     p.prod_id,
@@ -269,3 +267,133 @@ WHERE
             nth = 1
     )
 ORDER BY 1,4,5;
+
+-- Ranking employee salary with rank function
+SELECT
+    e.emp_id,
+    e.title,
+    e.last_name,
+    e.emp_curr_salary,
+    RANK() OVER (ORDER BY e.emp_curr_salary DESC) AS rank
+FROM
+    employees AS e;
+
+-- Difference between rank, dense_rank and row_number
+SELECT
+    p.prod_id,
+    p.category_id,
+    c.category_name,
+    p.prod_name,
+    p.unit_price,
+    RANK() OVER (ORDER BY unit_price DESC) AS rank
+FROM
+    products AS p
+    INNER JOIN categories AS c ON p.category_id = c.category_id;
+
+SELECT
+    p.prod_id,
+    p.category_id,
+    c.category_name,
+    p.prod_name,
+    p.unit_price,
+    DENSE_RANK() OVER (ORDER BY unit_price DESC) AS rank
+FROM
+    products AS p
+    INNER JOIN categories AS c ON p.category_id = c.category_id;
+
+SELECT
+    p.prod_id,
+    p.category_id,
+    c.category_name,
+    p.prod_name,
+    p.unit_price,
+    ROW_NUMBER() OVER (ORDER BY unit_price DESC) AS rank
+FROM
+    products AS p
+    INNER JOIN categories AS c ON p.category_id = c.category_id;
+
+-- Finding nth ranked product in terms of unit_price
+WITH 
+    CTE AS (
+        SELECT
+            p.prod_id,
+            p.category_id,
+            c.category_id,
+            p.prod_name,
+            p.unit_price,
+            DENSE_RANK() OVER (ORDER BY unit_price DESC) AS price_rank
+        FROM
+            products AS p
+            INNER JOIN categories AS c ON p.category_id = c.category_id
+    )
+SELECT
+    *
+FROM
+    CTE
+WHERE
+    price_rank = 14;
+
+-- Getting product name of lowest price with first_value function
+SELECT
+    p.prod_id,
+    p.category_id,
+    c.category_name,
+    p.prod_name,
+    p.unit_price,
+    FIRST_VALUE (p.prod_name) OVER (PARTITION BY p.category_id ORDER BY p.unit_price ASC) AS lowest_price_product,
+    FIRST_VALUE (p.unit_price) OVER (PARTITION BY p.category_id ORDER BY p.unit_price ASC) AS lowest_price
+FROM
+    products AS p
+    INNER JOIN categories AS c ON p.category_id = c.category_id
+ORDER BY 2;
+
+-- Getting product name of highest price with first_value function
+SELECT
+    p.prod_id,
+    p.category_id,
+    c.category_name,
+    p.prod_name,
+    p.unit_price,
+    FIRST_VALUE (p.prod_name) OVER (PARTITION BY p.category_id ORDER BY p.unit_price DESC) AS higest_price_product,
+    FIRST_VALUE (p.unit_price) OVER (PARTITION BY p.category_id ORDER BY p.unit_price DESC) AS higest_price
+FROM
+    products AS p
+    INNER JOIN categories AS c ON p.category_id = c.category_id
+ORDER BY 2;
+
+-- Getting previous freight with lag function with an offset of 1
+SELECT
+    o.order_id,
+    o.cust_id,
+    o.freight,
+    LAG(freight, 1) OVER (PARTITION BY o.cust_id) AS previous_freight
+FROM
+    orders AS o
+ORDER BY 2;
+
+-- Getting difference between the freight and previous freight with CTE and lag function
+WITH
+    CTE_1 AS (
+        SELECT
+            o.order_id,
+            o.cust_id,
+            o.freight
+        FROM
+            orders AS o
+    ),
+    CTE_2 AS (
+        SELECT
+            o1.order_id,
+            o1.cust_id,
+            o1.freight,
+            LAG(o1.freight, 1) OVER (PARTITION BY o1.cust_id) AS previous_freight
+        FROM
+            orders AS o1
+    )
+SELECT
+    *,
+    (c1.freight - c2.previous_freight) AS variance
+FROM
+    CTE_1 AS c1
+    INNER JOIN CTE_2 AS c2 ON c1.order_id = c2.order_id;
+
