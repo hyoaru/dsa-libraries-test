@@ -546,3 +546,125 @@ WHERE
     ship_country IN ('France')
 GROUP BY 1
 ORDER BY 1;
+
+-- Calculating top N items per group
+SELECT
+    ship_country,
+    ship_city,
+    COUNT(*)
+FROM
+    orders
+GROUP BY 1,2
+ORDER BY 3 DESC
+LIMIT 5;
+
+WITH 
+    CTE_A AS (
+        SELECT
+            ship_country,
+            ship_city,
+            COUNT(*) AS shipped_count,
+            ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) AS rankings
+        FROM
+            orders
+        GROUP BY 1,2
+    )
+SELECT
+    *
+FROM
+    CTE_A as a1
+WHERE
+    rankings <= 5;
+
+WITH
+    CTE_A AS (
+        SELECT
+            ship_country,
+            ship_city,
+            COUNT(*) AS shipped_count,
+            ROW_NUMBER() OVER (PARTITION BY ship_country ORDER BY COUNT(*)) AS country_rank
+        FROM
+            orders
+        GROUP BY 1,2
+    )   
+SELECT
+    *
+FROM
+    CTE_A AS a1
+WHERE
+    country_rank = 1;
+
+-- Calculating percentage of total sum and summary statistics
+WITH
+    CTE_Total AS (
+        SELECT
+            SUM(freight) AS total_freight
+        FROM
+            orders
+    ),
+    CTE_A AS (
+        SELECT
+            ship_country,
+            SUM(freight) AS freight_sum,
+            100 * (SUM(freight) / total.total_freight) AS total_percentage
+        FROM
+            orders, CTE_Total AS total
+        GROUP BY
+            ship_country,
+            total.total_freight
+        ORDER BY
+            total_percentage DESC
+    )
+SELECT
+    ship_country,
+    freight_sum,
+    total_percentage || ' %' AS total_percentage
+FROM
+    CTE_A AS a1;
+
+
+-- Calculating summary statistics
+WITH
+    CTE_A AS (
+        SELECT
+            o.order_id,
+            o.order_date,
+            o.freight,
+            o.ship_country,
+            o.ship_city,
+            od.quantity,
+            od.unit_price,
+            (od.quantity * od.unit_price) AS revenue
+        FROM
+            orders AS o
+            INNER JOIN order_details AS od ON o.order_id = od.order_id
+        WHERE
+            o.ship_country IN ('France')
+    )
+SELECT
+    'Total',
+    SUM(a1.quantity) AS total_quantity,
+    SUM(a1.revenue) AS total_revenue
+FROM
+    CTE_A AS a1
+UNION ALL
+SELECT
+    'Average',
+    AVG(a1.quantity) AS average_quantity,
+    AVG(a1.revenue) AS average_revenue
+FROM
+    CTE_A AS a1
+UNION ALL
+SELECT
+    'Minimum',
+    MIN(a1.quantity) AS minimum_quantity,
+    MIN(a1.revenue) AS minimum_revenue
+FROM
+    CTE_A AS a1
+UNION ALL
+SELECT
+    'Maximum',
+    MAX(a1.quantity) AS maximum_quantity,
+    MAX(a1.revenue) AS maximum_revenue
+FROM
+    CTE_A AS a1;
